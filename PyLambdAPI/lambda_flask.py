@@ -95,7 +95,10 @@ class LambdaFlask:
         query_params = event.get('queryStringParameters', {})
         body = event.get('body', {})
         if body and event.get('isBase64Encoded', False):
-            body = json.loads(base64.b64decode(body).decode('utf-8'))
+            body = {
+                'base64': True,
+                'file': base64.b64decode(body)
+            }
         elif body:
             body = json.loads(body)
         params = {**query_params, **body}
