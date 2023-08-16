@@ -1,3 +1,4 @@
+LICENSE
 setup.py
 PyLambdAPI/__init__.py
 PyLambdAPI/lambda_flask.py
