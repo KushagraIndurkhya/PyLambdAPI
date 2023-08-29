@@ -13,32 +13,41 @@ class Response:
         }
     def __str__(self):
         return f"Response(statusCode={self.statusCode}, body={self.body})"
-class Route:
-    def __init__(self, path, http_methods=None):
-        self.path = path
-        self.http_methods = http_methods or ['GET']
-        self.handlers = {}
-        self.middleware_chain = []
+class MethodHandler:
+    def __init__(self, func):
+        self.func = func
+        self.middlewares = []
 
     def use_middleware(self, middleware):
         if not isinstance(middleware, Middleware):
             raise ValueError("Middleware must be a subclass of Middleware")
         if not callable(middleware.process_request):
             raise ValueError("Middleware must be callable")
-        self.middleware_chain.append(middleware)
+        self.middlewares.append(middleware)
 
-    def route(self, http_method, func):
-        self.handlers[http_method] = func
-
-    def handle_request(self, method, req_params):
-        for middleware in self.middleware_chain:
+    def execute(self, req_params):
+        for middleware in self.middlewares:
             req_params = middleware.process_request(req_params)
             if isinstance(req_params, Response):
                 return req_params.json()
-        if method in self.handlers:
-            handler = self.handlers[method]
-            resp = handler(req_params)
-            return Response(resp.get('statusCode', 500), resp.get('body', {})).json()
+        return self.func(req_params)
+class Route:
+    def __init__(self, path, http_methods=None):
+        self.path = path
+        self.http_methods = http_methods or ['GET']
+        self.methods = {}  # Dictionary to store registered methods
+
+    def route(self, http_method, func):
+        self.methods[http_method] = MethodHandler(func)
+
+    def use_middleware(self, http_method, middleware):
+        if http_method not in self.methods:
+            raise ValueError(f"No method registered for {http_method}")
+        self.methods[http_method].use_middleware(middleware)
+
+    def handle_request(self, method, req_params):
+        if method in self.methods:
+            return self.methods[method].execute(req_params)
         else:
             return Response(405, 'Method Not Allowed').json()
 
@@ -60,9 +69,13 @@ class LambdaFlask:
         self.enable_response_logging = enable_response_logging
         self.logger = logging.getLogger(__name__)
 
+
     def route(self, path, http_methods=None):
-        route = Route(path, http_methods)
-        self.routes[path] = route
+        if path in self.routes:
+            route = self.routes[path]
+        else:
+            route = Route(path, http_methods)
+            self.routes[path] = route
         return route
 
     def process_request(self, event):
@@ -104,6 +117,9 @@ class LambdaFlask:
         params = {**query_params, **body}
         params['headers']=event['headers']
         return params
+    
+    def get_registered_routes(self):
+        return self.routes
 
     def log_request(self, method, path, params):
         if self.logger.isEnabledFor(logging.INFO):
@@ -120,10 +136,10 @@ class LambdaFlask:
 
         def decorator(func):
             route = self.route(path, http_methods)
-            for middleware in middlewares:
-                print("here")
-                route.use_middleware(middleware)
-            route.route(http_methods[0], func)
+            for http_method in http_methods:
+                route.route(http_method, func)
+                for middleware in middlewares:
+                    route.use_middleware(http_method, middleware)
             return func
 
         return decorator
