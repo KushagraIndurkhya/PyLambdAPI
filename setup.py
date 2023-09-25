@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='PyLambdAPI',
-    version='0.1.4',
+    version='0.1.5',
     description='A lightweight API framework for AWS Lambda',
     author='Kushagra Indurkhya',
     author_email='kindurkhya7@gmail.com',
