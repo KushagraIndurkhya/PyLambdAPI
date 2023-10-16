@@ -5,7 +5,7 @@ setup(
     version='0.1.5',
     description='A lightweight API framework for AWS Lambda',
     author='Kushagra Indurkhya',
-    author_email='kindurkhya7@gmail.com',
+    author_email='kushagraindurkhya7@gmail.com',
     url='https://github.com/KushagraIndurkhya/PyLambdAPI',
     packages=['PyLambdAPI'],
     install_requires=[]

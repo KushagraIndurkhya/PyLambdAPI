@@ -1,8 +1,0 @@
-LICENSE
-setup.py
-PyLambdAPI/__init__.py
-PyLambdAPI/lambda_flask.py
-PyLambdAPI.egg-info/PKG-INFO
-PyLambdAPI.egg-info/SOURCES.txt
-PyLambdAPI.egg-info/dependency_links.txt
-PyLambdAPI.egg-info/top_level.txt

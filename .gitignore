@@ -1,3 +1,7 @@
 dist/
 ToDo
 apps/
+deploy
+.DS_Store
+PyLambdAPI.egg-info/
+
