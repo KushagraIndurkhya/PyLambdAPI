@@ -37,7 +37,7 @@ from pylambdapi import LambdaFlask
 app = LambdaFlask(source='function_url')
 
 # Define a route and a route handler
-@app.route('/hello', http_methods=['GET'])
+@app.route_decorator('/hello', http_methods=['GET'])
 def hello():
     return 'Hello, Lambda World!'
 
@@ -50,13 +50,13 @@ PyLambdAPI employs a straightforward route and handler definition. You can speci
 
 ```python
 # Define a route and a route handler
-@app.route('/users', http_methods=['GET', 'POST'])
+@app.route_decorator('/users', http_methods=['GET', 'POST'])
 def users():
     # Handle GET or POST requests here
     # Return your response
 
 # Add middleware to a route
-@app.route('/private', http_methods=['GET'], middlewares=[MyCustomMiddleware()])
+@app.route_decorator('/private', http_methods=['GET'], middlewares=[MyCustomMiddleware()])
 def private_route():
     # Middleware processes the request before reaching this handler
     # Handle the request and return a response
