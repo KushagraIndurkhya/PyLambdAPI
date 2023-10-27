@@ -25,7 +25,8 @@ class swagger_generator:
         }
         self.paths = self.swagger['paths']
         self.definitions = self.swagger['definitions']
-    def build_swagger_parameters(self,params_dict):
+
+    def build_swagger_parameters(self, params_dict):
         parameters = []
         for param_name, param_type in params_dict.items():
             if isinstance(param_type, dict):
@@ -45,6 +46,7 @@ class swagger_generator:
                     'type': param_type.__name__,
                 })
         return parameters
+
     def generate_method_schema(self, method, path, handler):
         schema = {
             "tags": [
@@ -71,7 +73,8 @@ class swagger_generator:
                         "$ref": "#/definitions/" + param
                     }
                 elif param == 'req_params':
-                    schema['parameters'] = self.build_swagger_parameters(handler.func.__annotations__[param])
+                    schema['parameters'] = self.build_swagger_parameters(
+                        handler.func.__annotations__[param])
         return schema
 
     def add_route(self, path):
@@ -135,6 +138,9 @@ class MethodHandler:
 class Route:
     def __init__(self, path, http_methods=None):
         self.path = path
+        # Update Route to capture path parameters denoted with `{param}`
+        self.param_keys = [part[1:-1] for part in path.split("/")
+                           if part.startswith("{") and part.endswith("}")]
         self.http_methods = http_methods or ['GET']
         self.methods = {}  # Dictionary to store registered methods
 
@@ -165,7 +171,19 @@ class Middleware:
 
 
 class RequestInfo:
-    def _aggregate_params(self, query_string_params, body, headers, is_base64_encoded):
+    def _aggregate_params(self, path, route_path,
+                          query_string_params,
+                          body, headers, is_base64_encoded):
+
+        # Parse path parameters
+        param_values = [
+            part for path_part, route_part in
+            zip(path.split("/"), route_part.split("/"))
+            if route_part.startswith("{") and endswith("}")
+        ]
+        path_params = dict(zip(route.param_keys, param_values))
+        params = {**path_params, **query_string_params, **body}
+
         if body and is_base64_encoded:
             body = {
                 'base64': True,
@@ -177,11 +195,15 @@ class RequestInfo:
         params['headers'] = headers
         return params
 
-    def __init__(self, path, http_method, query_string_params, body, headers, is_base64_encoded, aggregate=True, identity=None):
+    def __init__(self, path, route_path, http_method, query_string_params, body, headers, is_base64_encoded, aggregate=True, identity=None):
         self.path = path
+        self.req_params = self._aggregate_params(
+            path, route_path, query_string_params,
+            body, headers, is_base64_encoded)
         self.http_method = http_method
         if aggregate:
-            self.req_params = self._aggregate_params(query_string_params, body, headers, is_base64_encoded)
+            self.req_params = self._aggregate_params(
+                query_string_params, body, headers, is_base64_encoded)
         else:
             self.req_params = {
                 'queryStringParameters': query_string_params,
@@ -220,9 +242,8 @@ class utills:
     def _process_api_url_event(self, event):
         path = event['path']
         method = event['httpMethod']
-        query_params = event.get('queryStringParameters') if event.get(
-            'queryStringParameters', None) else {}
-        body = event.get('body') if event.get('body', None) else {}
+        query_params = event.get('queryStringParameters', {})
+        body = event.get('body', {})
         isBase64Encoded = event.get('isBase64Encoded', False)
         headers = event.get('headers', {})
         identity = event.get('requestContext', {}).get('identity', {})
@@ -258,23 +279,38 @@ class LambdaFlask:
             self.routes[path] = route
         return route
 
+    def match_route(self, request_path):
+        for route_path in self.routes:
+            if (len(request_path.split("/")) ==
+                    len(route_path.split("/"))):
+                matched = all(
+                    rp == pp or (rp.startswith("{") and rp.endswith("}"))
+                    for rp, pp in zip(route_path.split("/"),
+                                      request_path.split("/")))
+                if matched:
+                    return self.routes[route_path]
+                return None
+
     def process_request(self, event):
         response = Response(500, 'Unable To Process Request',
                             isApiGatewayEvent=self.isApiGatewayEvent)
         try:
             req_info = utills().process_event(event, self.source)
-            if self.enable_request_logging:
-                req_info.log(self.logger)
-            if req_info.route() in self.routes:
-                route = self.routes[req_info.route()]
-                response = route.handle_request(
+            matched_route = self.match_route(req_info.route())
+            if matched_route:
+                response = matched_route.handle_request(
                     req_info.method(), req_info.params())
             else:
                 response = Response(
                     404, 'Route Not Found', isApiGatewayEvent=self.isApiGatewayEvent).json()
+
+            if self.enable_request_logging:
+                req_info.log(self.logger)
+
         except Exception as e:
             response = Response(
                 500, {'error': str(e)}, isApiGatewayEvent=self.isApiGatewayEvent).json()
+
         if self.enable_response_logging:
             self.log_response(response)
         return Response(response.get('statusCode', 500), response.get('body', {}), response.get('headers', {}), response.get('isBase64Encoded', False), self.isApiGatewayEvent).json()
