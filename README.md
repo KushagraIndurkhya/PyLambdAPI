@@ -62,12 +62,26 @@ def private_route():
     # Handle the request and return a response
 ```
 
+
+
 ## Logging
 
 PyLambdAPI offers built-in request and response logging for effortless troubleshooting. You can enable or disable request and response logging as needed.
 
 ```python
 app = LambdaFlask(source='api_gateway_proxy', enable_request_logging=True, enable_response_logging=False)
+```
+
+## Handling Path Parameters
+
+PyLambdAPI supports path parameters. Here's an example of a route that accepts a dynamic username:
+
+```python
+@app.route_decorator('/user/{username}', http_methods=['GET'])
+def get_user(req_params):
+    username = req_params.get('username')
+    # Logic to fetch user by username
+    return Response(200, f"Fetching details for {username}")
 ```
 
 ## Middleware
