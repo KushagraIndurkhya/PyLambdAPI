@@ -3,7 +3,7 @@ import logging
 import base64
 ALLOWED_SOURCES = ['function_url', 'api_gateway_proxy']
 
-
+# Helper comments for readability
 class swagger_generator:
     def __init__(self, app, title, version, description):
         self.app = app
